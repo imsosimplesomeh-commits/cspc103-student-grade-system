@@ -1,0 +1,2 @@
+# No external packages required.
+# Uses Python's built-in sqlite3 and tkinter.
