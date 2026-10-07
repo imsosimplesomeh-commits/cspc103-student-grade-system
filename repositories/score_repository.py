@@ -1,4 +1,4 @@
-# score_repository.py - repository for student component scores using SQLite
+# score_repository.py - repository for student component scores using PostgreSQL
 
 from db import get_connection
 from models import GradeComponentScore
@@ -33,7 +33,7 @@ class ScoreRepository(Repository):
                 "s.date_recorded, gc.name, gc.max_score, gc.type "
                 "FROM grade_component_scores s "
                 "JOIN grade_components gc ON s.component_id = gc.component_id "
-                "WHERE s.score_id = ?",
+                "WHERE s.score_id = %s",
                 (score_id,)
             )
             row = cur.fetchone()
@@ -68,7 +68,7 @@ class ScoreRepository(Repository):
                 "s.date_recorded, gc.name, gc.max_score, gc.type "
                 "FROM grade_component_scores s "
                 "JOIN grade_components gc ON s.component_id = gc.component_id "
-                "WHERE s.enrollment_id = ? "
+                "WHERE s.enrollment_id = %s "
                 "ORDER BY gc.type, gc.name",
                 (enrollment_id,)
             )
@@ -87,7 +87,7 @@ class ScoreRepository(Repository):
                 "s.date_recorded, gc.name, gc.max_score, gc.type "
                 "FROM grade_component_scores s "
                 "JOIN grade_components gc ON s.component_id = gc.component_id "
-                "WHERE s.enrollment_id = ? AND s.component_id = ?",
+                "WHERE s.enrollment_id = %s AND s.component_id = %s",
                 (enrollment_id, component_id)
             )
             row = cur.fetchone()
@@ -97,18 +97,19 @@ class ScoreRepository(Repository):
             conn.close()
 
     def save(self, score):
-        # upsert score for (enrollment_id, component_id) in SQLite
+        # upsert score for (enrollment_id, component_id) in PostgreSQL
         conn = self.conn_func()
         try:
             cur = conn.cursor()
             cur.execute(
                 "INSERT INTO grade_component_scores (enrollment_id, component_id, score, remarks, date_recorded) "
-                "VALUES (?, ?, ?, ?, COALESCE(?, CURRENT_DATE)) "
+                "VALUES (%s, %s, %s, %s, COALESCE(%s, CURRENT_DATE)) "
                 "ON CONFLICT (enrollment_id, component_id) DO UPDATE SET "
-                "score = EXCLUDED.score, remarks = EXCLUDED.remarks, date_recorded = EXCLUDED.date_recorded",
+                "score = EXCLUDED.score, remarks = EXCLUDED.remarks, date_recorded = EXCLUDED.date_recorded "
+                "RETURNING score_id",
                 (score.enrollment_id, score.component_id, score.score, score.remarks, score.date_recorded)
             )
-            sid = cur.lastrowid
+            sid = cur.fetchone()[0]
             conn.commit()
             cur.close()
             score.score_id = str(sid)
@@ -123,7 +124,7 @@ class ScoreRepository(Repository):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
-            cur.execute("DELETE FROM grade_component_scores WHERE score_id = ?", (score_id,))
+            cur.execute("DELETE FROM grade_component_scores WHERE score_id = %s", (score_id,))
             affected = cur.rowcount
             conn.commit()
             cur.close()

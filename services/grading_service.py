@@ -52,36 +52,36 @@ class GradingService:
         midterm_period_id = None
         finals_period_id = None
         for p in periods:
-            if "mid" in p.name.lower():
-                midterm_period_id = p.period_id
-            elif "fin" in p.name.lower():
-                finals_period_id = p.period_id
+            p_name = p.name.lower()
+            if "mid" in p_name:
+                midterm_period_id = str(p.period_id)
+            elif "fin" in p_name:
+                finals_period_id = str(p.period_id)
 
         # load components and student's scores
         all_components = self.component_repo.find_by_offering(offering_id)
         scores = self.score_repo.find_by_enrollment(enrollment_id)
-        score_by_comp_id = {s.component_id: s for s in scores}
+        score_by_comp_id = {str(s.component_id): s for s in scores}
 
-        # group scores by grading period and component type (Quiz, Lab, Exam)
+        # group scores strictly by period
         midterm_scores_by_type = {}
         finals_scores_by_type = {}
 
         for comp in all_components:
-            score_rec = score_by_comp_id.get(comp.component_id)
+            score_rec = score_by_comp_id.get(str(comp.component_id))
             actual_score = score_rec.score if score_rec else 0.0
             item = (actual_score, comp.max_score)
 
-            if midterm_period_id and comp.grading_period_id == midterm_period_id:
-                midterm_scores_by_type.setdefault(comp.type, []).append(item)
-            elif finals_period_id and comp.grading_period_id == finals_period_id:
-                finals_scores_by_type.setdefault(comp.type, []).append(item)
-            else:
-                if comp.period_name and "mid" in comp.period_name.lower():
-                    midterm_scores_by_type.setdefault(comp.type, []).append(item)
-                else:
-                    finals_scores_by_type.setdefault(comp.type, []).append(item)
+            comp_pid = str(comp.grading_period_id) if comp.grading_period_id else ""
+            comp_pname = (comp.period_name or "").lower()
 
-        # compute period grades and overall final grade
+            # strictly filter components by grading period
+            if (midterm_period_id and comp_pid == midterm_period_id) or "mid" in comp_pname:
+                midterm_scores_by_type.setdefault(comp.type, []).append(item)
+            elif (finals_period_id and comp_pid == finals_period_id) or "fin" in comp_pname:
+                finals_scores_by_type.setdefault(comp.type, []).append(item)
+
+        # compute period grades separately and overall final grade
         midterm_grade = self.calculator.compute_period_grade(midterm_scores_by_type, weights)
         finals_grade = self.calculator.compute_period_grade(finals_scores_by_type, weights)
         overall = self.calculator.compute_final_grade(midterm_grade, finals_grade, midterm_weight, finals_weight)

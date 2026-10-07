@@ -1,4 +1,4 @@
-# subject_repository.py - repository for subject database operations using SQLite
+# subject_repository.py - repository for subject database operations using PostgreSQL
 
 from db import get_connection
 from models import Subject
@@ -24,7 +24,7 @@ class SubjectRepository(Repository):
             cur = conn.cursor()
             cur.execute(
                 "SELECT subject_id, subject_code, subject_name, description, units "
-                "FROM subjects WHERE subject_id = ?",
+                "FROM subjects WHERE subject_id = %s",
                 (subject_id,)
             )
             row = cur.fetchone()
@@ -53,20 +53,20 @@ class SubjectRepository(Repository):
             cur = conn.cursor()
             if subject.subject_id:
                 cur.execute(
-                    "UPDATE subjects SET subject_code=?, subject_name=?, "
-                    "description=?, units=? WHERE subject_id=?",
+                    "UPDATE subjects SET subject_code=%s, subject_name=%s, "
+                    "description=%s, units=%s WHERE subject_id=%s RETURNING subject_id",
                     (subject.subject_code, subject.subject_name,
                      subject.description, subject.units, subject.subject_id)
                 )
-                sid = subject.subject_id
+                sid = cur.fetchone()[0]
             else:
                 cur.execute(
                     "INSERT INTO subjects (subject_code, subject_name, description, units) "
-                    "VALUES (?, ?, ?, ?)",
+                    "VALUES (%s, %s, %s, %s) RETURNING subject_id",
                     (subject.subject_code, subject.subject_name,
                      subject.description, subject.units)
                 )
-                sid = cur.lastrowid
+                sid = cur.fetchone()[0]
             conn.commit()
             cur.close()
             subject.subject_id = str(sid)
@@ -81,7 +81,7 @@ class SubjectRepository(Repository):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
-            cur.execute("DELETE FROM subjects WHERE subject_id = ?", (subject_id,))
+            cur.execute("DELETE FROM subjects WHERE subject_id = %s", (subject_id,))
             affected = cur.rowcount
             conn.commit()
             cur.close()

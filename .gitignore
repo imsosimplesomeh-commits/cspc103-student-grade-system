@@ -16,3 +16,7 @@ env/
 
 # Agent / Tool folders
 .agent/
+
+# Database files
+*.db
+*.sqlite3

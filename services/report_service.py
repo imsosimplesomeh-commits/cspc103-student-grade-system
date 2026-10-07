@@ -138,7 +138,7 @@ class ReportService:
                 conn = self.class_repo.conn_func()
                 try:
                     cur = conn.cursor()
-                    cur.execute("SELECT units FROM subjects WHERE subject_id = ?", (offering.subject_id,))
+                    cur.execute("SELECT units FROM subjects WHERE subject_id = %s", (offering.subject_id,))
                     u = cur.fetchone()
                     if u:
                         units = int(u[0])

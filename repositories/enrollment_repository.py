@@ -1,4 +1,4 @@
-# enrollment_repository.py - repository for class enrollments using SQLite
+# enrollment_repository.py - repository for class enrollments using PostgreSQL
 
 from db import get_connection
 from models import Enrollment
@@ -37,7 +37,7 @@ class EnrollmentRepository(Repository):
                 "JOIN students s ON e.student_id = s.student_id "
                 "JOIN class_offerings co ON e.offering_id = co.offering_id "
                 "JOIN subjects sub ON co.subject_id = sub.subject_id "
-                "WHERE e.enrollment_id = ?",
+                "WHERE e.enrollment_id = %s",
                 (enrollment_id,)
             )
             row = cur.fetchone()
@@ -78,7 +78,7 @@ class EnrollmentRepository(Repository):
                 "JOIN students s ON e.student_id = s.student_id "
                 "JOIN class_offerings co ON e.offering_id = co.offering_id "
                 "JOIN subjects sub ON co.subject_id = sub.subject_id "
-                "WHERE e.offering_id = ? "
+                "WHERE e.offering_id = %s "
                 "ORDER BY s.last_name, s.first_name",
                 (offering_id,)
             )
@@ -100,7 +100,7 @@ class EnrollmentRepository(Repository):
                 "JOIN students s ON e.student_id = s.student_id "
                 "JOIN class_offerings co ON e.offering_id = co.offering_id "
                 "JOIN subjects sub ON co.subject_id = sub.subject_id "
-                "WHERE e.student_id = ? "
+                "WHERE e.student_id = %s "
                 "ORDER BY co.school_year DESC, co.semester, co.class_code",
                 (student_id,)
             )
@@ -116,7 +116,7 @@ class EnrollmentRepository(Repository):
             cur = conn.cursor()
             cur.execute(
                 "SELECT e.enrollment_id, e.student_id, e.offering_id, e.enroll_date, e.status "
-                "FROM enrollments e WHERE e.student_id = ? AND e.offering_id = ?",
+                "FROM enrollments e WHERE e.student_id = %s AND e.offering_id = %s",
                 (student_id, offering_id)
             )
             row = cur.fetchone()
@@ -131,21 +131,21 @@ class EnrollmentRepository(Repository):
             cur = conn.cursor()
             if enrollment.enrollment_id:
                 cur.execute(
-                    "UPDATE enrollments SET student_id=?, offering_id=?, "
-                    "enroll_date=COALESCE(?, CURRENT_DATE), status=? "
-                    "WHERE enrollment_id=?",
+                    "UPDATE enrollments SET student_id=%s, offering_id=%s, "
+                    "enroll_date=COALESCE(%s, CURRENT_DATE), status=%s "
+                    "WHERE enrollment_id=%s RETURNING enrollment_id",
                     (enrollment.student_id, enrollment.offering_id,
                      enrollment.enroll_date, enrollment.status, enrollment.enrollment_id)
                 )
-                eid = enrollment.enrollment_id
+                eid = cur.fetchone()[0]
             else:
                 cur.execute(
                     "INSERT INTO enrollments (student_id, offering_id, enroll_date, status) "
-                    "VALUES (?, ?, COALESCE(?, CURRENT_DATE), ?)",
+                    "VALUES (%s, %s, COALESCE(%s, CURRENT_DATE), %s) RETURNING enrollment_id",
                     (enrollment.student_id, enrollment.offering_id,
                      enrollment.enroll_date, enrollment.status)
                 )
-                eid = cur.lastrowid
+                eid = cur.fetchone()[0]
             conn.commit()
             cur.close()
             enrollment.enrollment_id = str(eid)
@@ -160,7 +160,7 @@ class EnrollmentRepository(Repository):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
-            cur.execute("DELETE FROM enrollments WHERE enrollment_id = ?", (enrollment_id,))
+            cur.execute("DELETE FROM enrollments WHERE enrollment_id = %s", (enrollment_id,))
             affected = cur.rowcount
             conn.commit()
             cur.close()

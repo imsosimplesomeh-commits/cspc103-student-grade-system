@@ -1,4 +1,4 @@
-# grade_component_repository.py - repository for assessable components using SQLite
+# grade_component_repository.py - repository for assessable components using PostgreSQL
 
 from db import get_connection
 from models import GradeComponent
@@ -35,7 +35,7 @@ class GradeComponentRepository(Repository):
                 "FROM grade_components gc "
                 "JOIN grading_periods gp ON gc.grading_period_id = gp.period_id "
                 "JOIN grade_percentages gp_perc ON gc.percentage_id = gp_perc.percentage_id "
-                "WHERE gc.component_id = ?",
+                "WHERE gc.component_id = %s",
                 (component_id,)
             )
             row = cur.fetchone()
@@ -74,7 +74,7 @@ class GradeComponentRepository(Repository):
                 "FROM grade_components gc "
                 "JOIN grading_periods gp ON gc.grading_period_id = gp.period_id "
                 "JOIN grade_percentages gp_perc ON gc.percentage_id = gp_perc.percentage_id "
-                "WHERE gp_perc.offering_id = ? "
+                "WHERE gp_perc.offering_id = %s "
                 "ORDER BY gp.name, gc.type, gc.name",
                 (offering_id,)
             )
@@ -95,7 +95,7 @@ class GradeComponentRepository(Repository):
                 "FROM grade_components gc "
                 "JOIN grading_periods gp ON gc.grading_period_id = gp.period_id "
                 "JOIN grade_percentages gp_perc ON gc.percentage_id = gp_perc.percentage_id "
-                "WHERE gp_perc.offering_id = ? AND gc.grading_period_id = ? "
+                "WHERE gp_perc.offering_id = %s AND gc.grading_period_id = %s "
                 "ORDER BY gc.type, gc.name",
                 (offering_id, period_id)
             )
@@ -111,22 +111,22 @@ class GradeComponentRepository(Repository):
             cur = conn.cursor()
             if component.component_id:
                 cur.execute(
-                    "UPDATE grade_components SET grading_period_id=?, percentage_id=?, "
-                    "name=?, type=?, max_score=?, description=? "
-                    "WHERE component_id=?",
+                    "UPDATE grade_components SET grading_period_id=%s, percentage_id=%s, "
+                    "name=%s, type=%s, max_score=%s, description=%s "
+                    "WHERE component_id=%s RETURNING component_id",
                     (component.grading_period_id, component.percentage_id,
                      component.name, component.type, component.max_score,
                      component.description, component.component_id)
                 )
-                cid = component.component_id
+                cid = cur.fetchone()[0]
             else:
                 cur.execute(
                     "INSERT INTO grade_components (grading_period_id, percentage_id, name, type, max_score, description) "
-                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    "VALUES (%s, %s, %s, %s, %s, %s) RETURNING component_id",
                     (component.grading_period_id, component.percentage_id,
                      component.name, component.type, component.max_score, component.description)
                 )
-                cid = cur.lastrowid
+                cid = cur.fetchone()[0]
             conn.commit()
             cur.close()
             component.component_id = str(cid)
@@ -141,7 +141,7 @@ class GradeComponentRepository(Repository):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
-            cur.execute("DELETE FROM grade_components WHERE component_id = ?", (component_id,))
+            cur.execute("DELETE FROM grade_components WHERE component_id = %s", (component_id,))
             affected = cur.rowcount
             conn.commit()
             cur.close()

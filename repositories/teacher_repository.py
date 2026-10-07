@@ -1,4 +1,4 @@
-# teacher_repository.py - repository for teacher database operations using SQLite
+# teacher_repository.py - repository for teacher database operations using PostgreSQL
 
 from db import get_connection
 from models import Teacher
@@ -25,7 +25,7 @@ class TeacherRepository(Repository):
             cur = conn.cursor()
             cur.execute(
                 "SELECT teacher_id, first_name, last_name, email, department, status "
-                "FROM teachers WHERE teacher_id = ?",
+                "FROM teachers WHERE teacher_id = %s",
                 (teacher_id,)
             )
             row = cur.fetchone()
@@ -56,7 +56,7 @@ class TeacherRepository(Repository):
             cur.execute(
                 "SELECT teacher_id, first_name, last_name, email, department, status "
                 "FROM teachers "
-                "WHERE first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR department LIKE ? "
+                "WHERE first_name ILIKE %s OR last_name ILIKE %s OR email ILIKE %s OR department ILIKE %s "
                 "ORDER BY last_name, first_name",
                 (pattern, pattern, pattern, pattern)
             )
@@ -72,20 +72,20 @@ class TeacherRepository(Repository):
             cur = conn.cursor()
             if teacher.teacher_id:
                 cur.execute(
-                    "UPDATE teachers SET first_name=?, last_name=?, email=?, "
-                    "department=?, status=? WHERE teacher_id=?",
+                    "UPDATE teachers SET first_name=%s, last_name=%s, email=%s, "
+                    "department=%s, status=%s WHERE teacher_id=%s RETURNING teacher_id",
                     (teacher.first_name, teacher.last_name, teacher.email,
                      teacher.department, teacher.status, teacher.teacher_id)
                 )
-                tid = teacher.teacher_id
+                tid = cur.fetchone()[0]
             else:
                 cur.execute(
                     "INSERT INTO teachers (first_name, last_name, email, department, status) "
-                    "VALUES (?, ?, ?, ?, ?)",
+                    "VALUES (%s, %s, %s, %s, %s) RETURNING teacher_id",
                     (teacher.first_name, teacher.last_name, teacher.email,
                      teacher.department, teacher.status)
                 )
-                tid = cur.lastrowid
+                tid = cur.fetchone()[0]
             conn.commit()
             cur.close()
             teacher.teacher_id = str(tid)
@@ -100,7 +100,7 @@ class TeacherRepository(Repository):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
-            cur.execute("DELETE FROM teachers WHERE teacher_id = ?", (teacher_id,))
+            cur.execute("DELETE FROM teachers WHERE teacher_id = %s", (teacher_id,))
             affected = cur.rowcount
             conn.commit()
             cur.close()

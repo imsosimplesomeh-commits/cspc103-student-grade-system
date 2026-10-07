@@ -1,2 +1,1 @@
-# No external packages required.
-# Uses Python's built-in sqlite3 and tkinter.
+psycopg2-binary>=2.9.9

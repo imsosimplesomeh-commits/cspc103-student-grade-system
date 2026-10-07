@@ -1,4 +1,4 @@
-# student_repository.py - repository for student database operations using SQLite
+# student_repository.py - repository for student database operations using PostgreSQL
 
 from db import get_connection
 from models import Student
@@ -25,7 +25,7 @@ class StudentRepository(Repository):
             cur = conn.cursor()
             cur.execute(
                 "SELECT student_id, first_name, last_name, email, program, status "
-                "FROM students WHERE student_id = ?",
+                "FROM students WHERE student_id = %s",
                 (student_id,)
             )
             row = cur.fetchone()
@@ -56,7 +56,7 @@ class StudentRepository(Repository):
             cur.execute(
                 "SELECT student_id, first_name, last_name, email, program, status "
                 "FROM students "
-                "WHERE first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR program LIKE ? "
+                "WHERE first_name ILIKE %s OR last_name ILIKE %s OR email ILIKE %s OR program ILIKE %s "
                 "ORDER BY last_name, first_name",
                 (pattern, pattern, pattern, pattern)
             )
@@ -72,21 +72,21 @@ class StudentRepository(Repository):
             cur = conn.cursor()
             if student.student_id:
                 cur.execute(
-                    "UPDATE students SET first_name=?, last_name=?, email=?, "
-                    "program=?, status=?, updated_at=CURRENT_TIMESTAMP "
-                    "WHERE student_id=?",
+                    "UPDATE students SET first_name=%s, last_name=%s, email=%s, "
+                    "program=%s, status=%s "
+                    "WHERE student_id=%s RETURNING student_id",
                     (student.first_name, student.last_name, student.email,
                      student.program, student.status, student.student_id)
                 )
-                sid = student.student_id
+                sid = cur.fetchone()[0]
             else:
                 cur.execute(
                     "INSERT INTO students (first_name, last_name, email, program, status) "
-                    "VALUES (?, ?, ?, ?, ?)",
+                    "VALUES (%s, %s, %s, %s, %s) RETURNING student_id",
                     (student.first_name, student.last_name, student.email,
                      student.program, student.status)
                 )
-                sid = cur.lastrowid
+                sid = cur.fetchone()[0]
             conn.commit()
             cur.close()
             student.student_id = str(sid)
@@ -101,7 +101,7 @@ class StudentRepository(Repository):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
-            cur.execute("DELETE FROM students WHERE student_id = ?", (student_id,))
+            cur.execute("DELETE FROM students WHERE student_id = %s", (student_id,))
             affected = cur.rowcount
             conn.commit()
             cur.close()

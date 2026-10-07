@@ -208,19 +208,44 @@ def seed_all():
                     e.enroll_date = date(2026, 8, 22)
                     enroll_repo.save(e)
 
-    # 8. Component Scores
+    # 8. Component Scores with distinct Midterm and Finals performance
     all_comps = comp_repo.find_by_offering(offering.offering_id)
-    score_profiles = [
-        {"Quiz": 46.0, "Laboratory": 92.0, "Exam": 88.0},
-        {"Quiz": 42.0, "Laboratory": 85.0, "Exam": 82.0},
-        {"Quiz": 48.0, "Laboratory": 95.0, "Exam": 91.0},
+    student_score_map = [
+        # Student 1: Stefan Zuri Modelo
+        {
+            "Midterm Quiz 1": 44.0,
+            "Midterm Lab 1": 89.0,
+            "Midterm Exam": 84.0,
+            "Finals Quiz 2": 48.0,
+            "Finals Project": 94.0,
+            "Final Exam": 90.0,
+        },
+        # Student 2: Keinth Patrick Morillo
+        {
+            "Midterm Quiz 1": 47.0,
+            "Midterm Lab 1": 96.0,
+            "Midterm Exam": 92.0,
+            "Finals Quiz 2": 49.0,
+            "Finals Project": 98.0,
+            "Final Exam": 95.0,
+        },
+        # Student 3: Andrae Almodiente
+        {
+            "Midterm Quiz 1": 39.0,
+            "Midterm Lab 1": 82.0,
+            "Midterm Exam": 78.0,
+            "Finals Quiz 2": 41.0,
+            "Finals Project": 86.0,
+            "Final Exam": 81.0,
+        },
     ]
 
     for idx, en in enumerate(enrollments[:3]):
-        profile = score_profiles[idx % len(score_profiles)]
+        comp_scores = student_score_map[idx % len(student_score_map)]
         for comp in all_comps:
-            base = profile.get(comp.type, 75.0)
-            actual = min(base if comp.max_score > 50 else (base * comp.max_score / 100.0), comp.max_score)
+            actual = comp_scores.get(comp.name)
+            if actual is None:
+                actual = round(comp.max_score * 0.85, 1)
             score_repo.save(GradeComponentScore(
                 enrollment_id=en.enrollment_id,
                 component_id=comp.component_id,

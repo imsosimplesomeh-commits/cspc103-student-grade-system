@@ -1,4 +1,4 @@
-# class_repository.py - repository for class offerings using SQLite
+# class_repository.py - repository for class offerings using PostgreSQL
 
 from db import get_connection
 from models import ClassOffering
@@ -38,7 +38,7 @@ class ClassRepository(Repository):
                 "FROM class_offerings co "
                 "JOIN subjects s ON co.subject_id = s.subject_id "
                 "JOIN teachers t ON co.teacher_id = t.teacher_id "
-                "WHERE co.offering_id = ?",
+                "WHERE co.offering_id = %s",
                 (offering_id,)
             )
             row = cur.fetchone()
@@ -72,24 +72,24 @@ class ClassRepository(Repository):
             cur = conn.cursor()
             if offering.offering_id:
                 cur.execute(
-                    "UPDATE class_offerings SET class_code=?, schedule=?, section=?, "
-                    "school_year=?, semester=?, room=?, subject_id=?, teacher_id=? "
-                    "WHERE offering_id=?",
+                    "UPDATE class_offerings SET class_code=%s, schedule=%s, section=%s, "
+                    "school_year=%s, semester=%s, room=%s, subject_id=%s, teacher_id=%s "
+                    "WHERE offering_id=%s RETURNING offering_id",
                     (offering.class_code, offering.schedule, offering.section,
                      offering.school_year, offering.semester, offering.room,
                      offering.subject_id, offering.teacher_id, offering.offering_id)
                 )
-                oid = offering.offering_id
+                oid = cur.fetchone()[0]
             else:
                 cur.execute(
                     "INSERT INTO class_offerings (class_code, schedule, section, school_year, "
                     "semester, room, subject_id, teacher_id) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING offering_id",
                     (offering.class_code, offering.schedule, offering.section,
                      offering.school_year, offering.semester, offering.room,
                      offering.subject_id, offering.teacher_id)
                 )
-                oid = cur.lastrowid
+                oid = cur.fetchone()[0]
             conn.commit()
             cur.close()
             offering.offering_id = str(oid)
@@ -104,7 +104,7 @@ class ClassRepository(Repository):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
-            cur.execute("DELETE FROM class_offerings WHERE offering_id = ?", (offering_id,))
+            cur.execute("DELETE FROM class_offerings WHERE offering_id = %s", (offering_id,))
             affected = cur.rowcount
             conn.commit()
             cur.close()

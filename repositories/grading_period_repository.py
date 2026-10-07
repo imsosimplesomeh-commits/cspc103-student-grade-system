@@ -1,4 +1,4 @@
-# grading_period_repository.py - repository for grading periods using SQLite
+# grading_period_repository.py - repository for grading periods using PostgreSQL
 
 from db import get_connection
 from models import GradingPeriod
@@ -25,7 +25,7 @@ class GradingPeriodRepository(Repository):
             cur = conn.cursor()
             cur.execute(
                 "SELECT period_id, name, start_date, end_date, school_year, semester "
-                "FROM grading_periods WHERE period_id = ?",
+                "FROM grading_periods WHERE period_id = %s",
                 (period_id,)
             )
             row = cur.fetchone()
@@ -54,7 +54,7 @@ class GradingPeriodRepository(Repository):
             cur = conn.cursor()
             cur.execute(
                 "SELECT period_id, name, start_date, end_date, school_year, semester "
-                "FROM grading_periods WHERE school_year = ? AND semester = ? ORDER BY start_date",
+                "FROM grading_periods WHERE school_year = %s AND semester = %s ORDER BY start_date",
                 (school_year, semester)
             )
             rows = cur.fetchall()
@@ -69,20 +69,20 @@ class GradingPeriodRepository(Repository):
             cur = conn.cursor()
             if period.period_id:
                 cur.execute(
-                    "UPDATE grading_periods SET name=?, start_date=?, end_date=?, "
-                    "school_year=?, semester=? WHERE period_id=?",
+                    "UPDATE grading_periods SET name=%s, start_date=%s, end_date=%s, "
+                    "school_year=%s, semester=%s WHERE period_id=%s RETURNING period_id",
                     (period.name, period.start_date, period.end_date,
                      period.school_year, period.semester, period.period_id)
                 )
-                pid = period.period_id
+                pid = cur.fetchone()[0]
             else:
                 cur.execute(
                     "INSERT INTO grading_periods (name, start_date, end_date, school_year, semester) "
-                    "VALUES (?, ?, ?, ?, ?)",
+                    "VALUES (%s, %s, %s, %s, %s) RETURNING period_id",
                     (period.name, period.start_date, period.end_date,
                      period.school_year, period.semester)
                 )
-                pid = cur.lastrowid
+                pid = cur.fetchone()[0]
             conn.commit()
             cur.close()
             period.period_id = str(pid)
@@ -97,7 +97,7 @@ class GradingPeriodRepository(Repository):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
-            cur.execute("DELETE FROM grading_periods WHERE period_id = ?", (period_id,))
+            cur.execute("DELETE FROM grading_periods WHERE period_id = %s", (period_id,))
             affected = cur.rowcount
             conn.commit()
             cur.close()

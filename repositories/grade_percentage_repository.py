@@ -1,4 +1,4 @@
-# grade_percentage_repository.py - repository for class grading weights using SQLite
+# grade_percentage_repository.py - repository for class grading weights using PostgreSQL
 
 from db import get_connection
 from models import GradePercentage
@@ -23,7 +23,7 @@ class GradePercentageRepository(Repository):
             cur = conn.cursor()
             cur.execute(
                 "SELECT percentage_id, offering_id, component_type, percentage "
-                "FROM grade_percentages WHERE percentage_id = ?",
+                "FROM grade_percentages WHERE percentage_id = %s",
                 (percentage_id,)
             )
             row = cur.fetchone()
@@ -52,7 +52,7 @@ class GradePercentageRepository(Repository):
             cur = conn.cursor()
             cur.execute(
                 "SELECT percentage_id, offering_id, component_type, percentage "
-                "FROM grade_percentages WHERE offering_id = ? ORDER BY component_type",
+                "FROM grade_percentages WHERE offering_id = %s ORDER BY component_type",
                 (offering_id,)
             )
             rows = cur.fetchall()
@@ -67,19 +67,19 @@ class GradePercentageRepository(Repository):
             cur = conn.cursor()
             if percentage.percentage_id:
                 cur.execute(
-                    "UPDATE grade_percentages SET offering_id=?, component_type=?, "
-                    "percentage=? WHERE percentage_id=?",
+                    "UPDATE grade_percentages SET offering_id=%s, component_type=%s, "
+                    "percentage=%s WHERE percentage_id=%s RETURNING percentage_id",
                     (percentage.offering_id, percentage.component_type,
                      percentage.percentage, percentage.percentage_id)
                 )
-                pid = percentage.percentage_id
+                pid = cur.fetchone()[0]
             else:
                 cur.execute(
                     "INSERT INTO grade_percentages (offering_id, component_type, percentage) "
-                    "VALUES (?, ?, ?)",
+                    "VALUES (%s, %s, %s) RETURNING percentage_id",
                     (percentage.offering_id, percentage.component_type, percentage.percentage)
                 )
-                pid = cur.lastrowid
+                pid = cur.fetchone()[0]
             conn.commit()
             cur.close()
             percentage.percentage_id = str(pid)
@@ -94,7 +94,7 @@ class GradePercentageRepository(Repository):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
-            cur.execute("DELETE FROM grade_percentages WHERE percentage_id = ?", (percentage_id,))
+            cur.execute("DELETE FROM grade_percentages WHERE percentage_id = %s", (percentage_id,))
             affected = cur.rowcount
             conn.commit()
             cur.close()

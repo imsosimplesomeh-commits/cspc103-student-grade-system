@@ -1,4 +1,4 @@
-# grade_repository.py - repository for computed period and final grades using SQLite
+# grade_repository.py - repository for computed period and final grades using PostgreSQL
 
 from db import get_connection
 from models import Grade
@@ -26,7 +26,7 @@ class GradeRepository(Repository):
             cur = conn.cursor()
             cur.execute(
                 "SELECT grade_id, enrollment_id, midterm_grade, finals_grade, final_grade, remarks, date_encoded "
-                "FROM grades WHERE grade_id = ?",
+                "FROM grades WHERE grade_id = %s",
                 (grade_id,)
             )
             row = cur.fetchone()
@@ -55,7 +55,7 @@ class GradeRepository(Repository):
             cur = conn.cursor()
             cur.execute(
                 "SELECT grade_id, enrollment_id, midterm_grade, finals_grade, final_grade, remarks, date_encoded "
-                "FROM grades WHERE enrollment_id = ?",
+                "FROM grades WHERE enrollment_id = %s",
                 (enrollment_id,)
             )
             row = cur.fetchone()
@@ -72,7 +72,7 @@ class GradeRepository(Repository):
                 "SELECT g.grade_id, g.enrollment_id, g.midterm_grade, g.finals_grade, g.final_grade, g.remarks, g.date_encoded "
                 "FROM grades g "
                 "JOIN enrollments e ON g.enrollment_id = e.enrollment_id "
-                "WHERE e.offering_id = ?",
+                "WHERE e.offering_id = %s",
                 (offering_id,)
             )
             rows = cur.fetchall()
@@ -82,23 +82,24 @@ class GradeRepository(Repository):
             conn.close()
 
     def save(self, grade):
-        # upsert grade by unique enrollment_id in SQLite
+        # upsert grade by unique enrollment_id in PostgreSQL
         conn = self.conn_func()
         try:
             cur = conn.cursor()
             cur.execute(
                 "INSERT INTO grades (enrollment_id, midterm_grade, finals_grade, final_grade, remarks, date_encoded) "
-                "VALUES (?, ?, ?, ?, ?, COALESCE(?, CURRENT_DATE)) "
+                "VALUES (%s, %s, %s, %s, %s, COALESCE(%s, CURRENT_DATE)) "
                 "ON CONFLICT (enrollment_id) DO UPDATE SET "
                 "midterm_grade = EXCLUDED.midterm_grade, "
                 "finals_grade = EXCLUDED.finals_grade, "
                 "final_grade = EXCLUDED.final_grade, "
                 "remarks = EXCLUDED.remarks, "
-                "date_encoded = EXCLUDED.date_encoded",
+                "date_encoded = EXCLUDED.date_encoded "
+                "RETURNING grade_id",
                 (grade.enrollment_id, grade.midterm_grade, grade.finals_grade,
                  grade.final_grade, grade.remarks, grade.date_encoded)
             )
-            gid = cur.lastrowid
+            gid = cur.fetchone()[0]
             conn.commit()
             cur.close()
             grade.grade_id = str(gid)
@@ -113,7 +114,7 @@ class GradeRepository(Repository):
         conn = self.conn_func()
         try:
             cur = conn.cursor()
-            cur.execute("DELETE FROM grades WHERE grade_id = ?", (grade_id,))
+            cur.execute("DELETE FROM grades WHERE grade_id = %s", (grade_id,))
             affected = cur.rowcount
             conn.commit()
             cur.close()
