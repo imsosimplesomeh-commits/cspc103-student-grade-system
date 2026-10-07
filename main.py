@@ -68,7 +68,7 @@ class StudentGradeManagementApp(tk.Tk):
         status_bar.pack(fill="x", side="bottom")
         self.lbl_status = ttk.Label(
             status_bar,
-            text="System Ready | SQLite Database: student_grades.db",
+            text="System Ready | PostgreSQL Database: Modelo_CSPC103",
             font=("Segoe UI", 8)
         )
         self.lbl_status.pack(side="left")
